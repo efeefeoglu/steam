@@ -57,7 +57,7 @@ def index():
         return render_template('index.html', games=games, error=error)
 
     username = "efenkullah"
-    steam_id = get_steam_id(username)
+    steam_id = "76561198421708463"
 
     if steam_id:
         games = get_wishlist(steam_id)
