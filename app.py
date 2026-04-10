@@ -64,7 +64,7 @@ def index():
     else:
         error = f"Could not resolve Steam ID for user '{username}'. Make sure your API key is correct."
 
-    return render_template('index.html', games=games, error=error, username=username)
+    return render_template('index.html', games=games, error=error, username=username, content=content2)
 
 if __name__ == '__main__':
     app.run(debug=True)
