@@ -56,12 +56,12 @@ def get_latest_news(api_key: str, app_id: int) -> dict[str, str]:
     if not items:
         return {
             "title": "No news yet",
-            "image_url": "",
+            "image_url": f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/header.jpg",
             "url": f"https://store.steampowered.com/app/{app_id}",
         }
 
     newest = items[0]
-    image_url = newest.get("image") or ""
+    image_url = f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/header.jpg"
     return {
         "title": newest.get("title") or "Untitled news",
         "image_url": image_url,
