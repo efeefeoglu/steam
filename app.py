@@ -45,7 +45,7 @@ def get_app_name(api_key: str, app_id: int) -> str:
     return f"App {app_id}"
 
 
-def get_latest_news(api_key: str, app_id: int) -> dict[str, str]:
+def get_latest_news(api_key: str, app_id: int) -> dict[str, Any]:
     url = (
         "https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/"
         f"?key={api_key}&appid={app_id}"
@@ -58,19 +58,31 @@ def get_latest_news(api_key: str, app_id: int) -> dict[str, str]:
             "title": "No news yet",
             "image_url": f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/header.jpg",
             "url": f"https://store.steampowered.com/app/{app_id}",
+            "is_playtest": False,
         }
 
-    newest = items[0]
+    selected_item = items[0]
+    is_playtest = False
+
+    for item in items:
+        title = str(item.get("title") or "")
+        contents = str(item.get("contents") or "")
+        if "playtest" in f"{title} {contents}".lower():
+            selected_item = item
+            is_playtest = True
+            break
+
     image_url = f"https://cdn.akamai.steamstatic.com/steam/apps/{app_id}/header.jpg"
     return {
-        "title": newest.get("title") or "Untitled news",
+        "title": selected_item.get("title") or "Untitled news",
         "image_url": image_url,
-        "url": newest.get("url") or f"https://store.steampowered.com/app/{app_id}",
+        "url": selected_item.get("url") or f"https://store.steampowered.com/app/{app_id}",
+        "is_playtest": is_playtest,
     }
 
 
-def build_game_cards(api_key: str, steam_id: str) -> list[dict[str, str]]:
-    cards: list[dict[str, str]] = []
+def build_game_cards(api_key: str, steam_id: str) -> list[dict[str, Any]]:
+    cards: list[dict[str, Any]] = []
     for app_id in get_wishlist_app_ids(api_key, steam_id):
         app_name = get_app_name(api_key, app_id)
         latest_news = get_latest_news(api_key, app_id)
@@ -81,6 +93,7 @@ def build_game_cards(api_key: str, steam_id: str) -> list[dict[str, str]]:
                 "news_title": latest_news["title"],
                 "news_image": latest_news["image_url"],
                 "news_url": latest_news["url"],
+                "is_playtest": latest_news["is_playtest"],
                 "store_url": f"https://store.steampowered.com/app/{app_id}",
             }
         )
@@ -89,7 +102,7 @@ def build_game_cards(api_key: str, steam_id: str) -> list[dict[str, str]]:
 
 @app.route("/")
 def index():
-    cards: list[dict[str, str]] = []
+    cards: list[dict[str, Any]] = []
     error = None
 
     if not STEAM_API_KEY:
