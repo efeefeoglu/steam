@@ -1,70 +1,108 @@
 import os
+from typing import Any
+
 import requests
-import json
-import re
 from flask import Flask, render_template
 
 app = Flask(__name__)
 
-STEAM_API_KEY = os.environ.get('STEAM_API_KEY', '')
+STEAM_API_KEY = os.environ.get("STEAM_API_KEY", "")
+STEAM_USER_ID = os.environ.get("STEAM_USER_ID", "76561198421708463")
+REQUEST_TIMEOUT_SECONDS = 15
 
-def get_steam_id(username):
-    url = f"https://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key={STEAM_API_KEY}&vanityurl={username}"
-    try:
-        response = requests.get(url)
-        data = response.json()
-        if data['response']['success'] == 1:
-            return data['response']['steamid']
-    except Exception as e:
-        print(f"Error fetching steam id: {e}")
-    return None
 
-def get_wishlist(steam_id):
-    url = f"https://store.steampowered.com/wishlist/profiles/{steam_id}/wishlistdata/"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+def _safe_get_json(url: str) -> dict[str, Any]:
+    response = requests.get(url, timeout=REQUEST_TIMEOUT_SECONDS)
+    response.raise_for_status()
+    return response.json()
+
+
+def get_wishlist_app_ids(api_key: str, steam_id: str) -> list[int]:
+    url = (
+        "https://api.steampowered.com/IWishlistService/GetWishlist/v1/"
+        f"?key={api_key}&steamid={steam_id}"
+    )
+    data = _safe_get_json(url)
+    items = data.get("response", {}).get("items", [])
+
+    app_ids: list[int] = []
+    for item in items:
+        appid = item.get("appid")
+        if isinstance(appid, int):
+            app_ids.append(appid)
+    return app_ids
+
+
+def get_app_name(api_key: str, app_id: int) -> str:
+    url = (
+        "https://api.steampowered.com/ICommunityService/GetApps/v1/"
+        f"?key={api_key}&appids[0]={app_id}"
+    )
+    data = _safe_get_json(url)
+    apps = data.get("response", {}).get("apps", [])
+    if apps and isinstance(apps[0], dict):
+        return apps[0].get("name") or f"App {app_id}"
+    return f"App {app_id}"
+
+
+def get_latest_news(api_key: str, app_id: int) -> dict[str, str]:
+    url = (
+        "https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/"
+        f"?key={api_key}&appid={app_id}"
+    )
+    data = _safe_get_json(url)
+    items = data.get("appnews", {}).get("newsitems", [])
+
+    if not items:
+        return {
+            "title": "No news yet",
+            "image_url": "",
+            "url": f"https://store.steampowered.com/app/{app_id}",
+        }
+
+    newest = items[0]
+    image_url = newest.get("image") or ""
+    return {
+        "title": newest.get("title") or "Untitled news",
+        "image_url": image_url,
+        "url": newest.get("url") or f"https://store.steampowered.com/app/{app_id}",
     }
 
-    try:
-        # First try to get it directly, if that fails, try to parse the page
-        response = requests.get(url, headers=headers)
-        content = response.text
 
-        try:
-            data = json.loads(content)
-            if isinstance(data, dict):
-                return [(k, v.get('name')) for k, v in data.items() if isinstance(v, dict) and 'name' in v]
-        except json.JSONDecodeError:
-            pass
+def build_game_cards(api_key: str, steam_id: str) -> list[dict[str, str]]:
+    cards: list[dict[str, str]] = []
+    for app_id in get_wishlist_app_ids(api_key, steam_id):
+        app_name = get_app_name(api_key, app_id)
+        latest_news = get_latest_news(api_key, app_id)
+        cards.append(
+            {
+                "app_id": str(app_id),
+                "app_name": app_name,
+                "news_title": latest_news["title"],
+                "news_image": latest_news["image_url"],
+                "news_url": latest_news["url"],
+                "store_url": f"https://store.steampowered.com/app/{app_id}",
+            }
+        )
+    return cards
 
-        # Try to parse from HTML if not directly JSON
-        match = re.search(r'\"rgApps\":(\{.*?\})(?=,\"rgPackages\")', content)
-        if match:
-            data = json.loads(match.group(1))
-            return [(k, v.get('name')) for k, v in data.items()]
 
-    except Exception as e:
-        print(f"Error fetching wishlist: {e}")
-    return []
-
-@app.route('/')
+@app.route("/")
 def index():
-    games = []
+    cards: list[dict[str, str]] = []
     error = None
 
     if not STEAM_API_KEY:
         error = "STEAM_API_KEY environment variable is not set."
-        return render_template('index.html', games=games, error=error)
+        return render_template("index.html", cards=cards, error=error, steam_user_id=STEAM_USER_ID)
 
-    username = "efenkullah"
-    steam_id = "76561198421708463"
+    try:
+        cards = build_game_cards(STEAM_API_KEY, STEAM_USER_ID)
+    except requests.RequestException as exc:
+        error = f"Steam API request failed: {exc}"
 
-    if steam_id:
-        games = get_wishlist(steam_id)
-    else:
-        error = f"Could not resolve Steam ID for user '{username}'. Make sure your API key is correct."
+    return render_template("index.html", cards=cards, error=error, steam_user_id=STEAM_USER_ID)
 
-    return render_template('index.html', games=games, error=error, username=username, content=content2)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)

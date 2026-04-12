@@ -1,46 +1,132 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wishlist for {{ username }}</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Steam Wishlist News Cards</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        .error { color: red; }
-        table { border-collapse: collapse; width: 100%; max-width: 600px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f2f2f2; }
+        body {
+            font-family: Inter, Arial, sans-serif;
+            margin: 0;
+            padding: 24px;
+            background: #0b0f14;
+            color: #e6edf3;
+        }
+
+        .page {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin: 0 0 10px;
+        }
+
+        p {
+            color: #9fb0c0;
+        }
+
+        .error {
+            color: #ff8080;
+            background: #2b1111;
+            border: 1px solid #5b2020;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 20px;
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .card {
+            background: #121a23;
+            border: 1px solid #2a3a4a;
+            border-radius: 12px;
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            transition: transform 0.15s ease, border-color 0.15s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+            border-color: #4b85c5;
+        }
+
+        .card-image {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            background: #0d131b;
+            display: block;
+        }
+
+        .placeholder {
+            width: 100%;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8b9aaa;
+            font-size: 14px;
+            background: #0d131b;
+        }
+
+        .card-content {
+            padding: 12px;
+        }
+
+        .app-title {
+            font-size: 18px;
+            margin: 0 0 8px;
+        }
+
+        .news-title {
+            margin: 0;
+            color: #c9d9e8;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .empty {
+            margin-top: 16px;
+            color: #9fb0c0;
+        }
     </style>
 </head>
 <body>
-    <h1>my steam page</h1>
-    <h2>Wishlist for {{ username }}</h2>
+<div class="page">
+    <h1>Steam Wishlist News</h1>
+    <p>Wishlist for Steam user ID: <strong>{{ steam_user_id }}</strong></p>
 
     {% if error %}
-        <p class="error">{{ error }}</p>
+        <div class="error">{{ error }}</div>
     {% endif %}
 
-    {% if games %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Game ID</th>
-                    <th>Game Name</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for app_id, name in games %}
-                <tr>
-                    <td>{{ app_id }}</td>
-                    <td>{{ name }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    {% if cards %}
+        <div class="cards">
+            {% for card in cards %}
+                <a class="card" href="{{ card.store_url }}" target="_blank" rel="noopener noreferrer">
+                    {% if card.news_image %}
+                        <img class="card-image" src="{{ card.news_image }}" alt="{{ card.app_name }} latest news image" />
+                    {% else %}
+                        <div class="placeholder">No image available</div>
+                    {% endif %}
+
+                    <div class="card-content">
+                        <h2 class="app-title">{{ card.app_name }}</h2>
+                        <p class="news-title">{{ card.news_title }}</p>
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
     {% elif not error %}
-        <p>No games found in the wishlist or the wishlist is private.</p>
+        <p class="empty">No wishlist apps found (or wishlist is private).</p>
     {% endif %}
-
-    {{content}}
+</div>
 </body>
 </html>
