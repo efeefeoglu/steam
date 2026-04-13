@@ -7,12 +7,9 @@ from flask import Flask, render_template
 
 app = Flask(__name__)
 
-STEAM_API_KEY = os.environ.get("STEAM_API_KEY", "")
-STEAM_USER_ID = os.environ.get("STEAM_USER_ID", "76561198421708463")
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://neondb_owner:npg_uVNDQRX9pM2I@ep-nameless-shadow-al17gujc-pooler.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
-)
+STEAM_API_KEY = os.environ.get("STEAM_API_KEY")
+STEAM_USER_ID = os.environ.get("STEAM_USER_ID")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 REQUEST_TIMEOUT_SECONDS = 15
 
 
