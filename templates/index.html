@@ -126,7 +126,7 @@
 
         .status-actions {
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 8px;
             padding: 12px;
             border-top: 1px solid #223140;
@@ -189,10 +189,8 @@
                         </div>
                     </a>
                     <div class="status-actions">
-                        <button class="status-btn {% if card.status == 'released' %}active{% endif %}" data-status="released" title="Released" aria-label="Released">🚀</button>
-                        <button class="status-btn {% if card.status == 'demo_played' %}active{% endif %}" data-status="demo_played" title="Demo Played" aria-label="Demo Played">🎮</button>
+                        <button class="status-btn {% if card.status == 'wishlisted' %}active{% endif %}" data-status="wishlisted" title="Wishlisted" aria-label="Wishlisted">⭐</button>
                         <button class="status-btn {% if card.status == 'playtest_applied' %}active{% endif %}" data-status="playtest_applied" title="Playtest Applied" aria-label="Playtest Applied">📝</button>
-                        <button class="status-btn {% if card.status == 'playtest_played' %}active{% endif %}" data-status="playtest_played" title="Playtest Played" aria-label="Playtest Played">🧪</button>
                     </div>
                 </article>
             {% endfor %}

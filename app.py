@@ -12,11 +12,10 @@ STEAM_USER_ID = os.environ.get("STEAM_USER_ID")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 REQUEST_TIMEOUT_SECONDS = 15
 ALLOWED_STATUSES = {
-    "released",
-    "demo_played",
+    "wishlisted",
     "playtest_applied",
-    "playtest_played",
 }
+VISIBLE_STATUSES = {"wishlisted", "playtest_applied"}
 
 
 def _safe_get_json(url: str) -> dict[str, Any]:
@@ -156,7 +155,12 @@ def build_game_cards(api_key: str, steam_id: str) -> list[dict[str, Any]]:
 
     cards: list[dict[str, Any]] = []
     for app_id in wishlist_app_ids:
-        app_name = games_by_id.get(app_id, {}).get("name", f"App {app_id}")
+        game_data = games_by_id.get(app_id, {})
+        game_status = game_data.get("status", "wishlisted")
+        if game_status not in VISIBLE_STATUSES:
+            continue
+
+        app_name = game_data.get("name", f"App {app_id}")
         latest_news = get_latest_news(api_key, app_id)
         cards.append(
             {
@@ -167,7 +171,7 @@ def build_game_cards(api_key: str, steam_id: str) -> list[dict[str, Any]]:
                 "news_url": latest_news["url"],
                 "is_playtest": latest_news["is_playtest"],
                 "store_url": f"https://store.steampowered.com/app/{app_id}",
-                "status": games_by_id.get(app_id, {}).get("status", "wishlisted"),
+                "status": game_status,
             }
         )
     return cards
