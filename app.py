@@ -13,7 +13,10 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 REQUEST_TIMEOUT_SECONDS = 15
 ALLOWED_STATUSES = {
     "wishlisted",
+    "released",
+    "demo_played",
     "playtest_applied",
+    "playtest_played",
 }
 VISIBLE_STATUSES = {"wishlisted", "playtest_applied"}
 
