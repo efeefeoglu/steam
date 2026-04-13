@@ -1,6 +1,7 @@
 import os
 from typing import Any
 
+import psycopg
 import requests
 from flask import Flask, render_template
 
@@ -8,6 +9,10 @@ app = Flask(__name__)
 
 STEAM_API_KEY = os.environ.get("STEAM_API_KEY", "")
 STEAM_USER_ID = os.environ.get("STEAM_USER_ID", "76561198421708463")
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql://neondb_owner:npg_uVNDQRX9pM2I@ep-nameless-shadow-al17gujc-pooler.c-3.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+)
 REQUEST_TIMEOUT_SECONDS = 15
 
 
@@ -81,10 +86,62 @@ def get_latest_news(api_key: str, app_id: int) -> dict[str, Any]:
     }
 
 
+def get_games_from_db(app_ids: list[int]) -> dict[int, dict[str, str]]:
+    if not app_ids:
+        return {}
+
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, name, status FROM games WHERE id = ANY(%s)",
+                (app_ids,),
+            )
+            rows = cur.fetchall()
+
+    games: dict[int, dict[str, str]] = {}
+    for row in rows:
+        game_id, name, status = row
+        if isinstance(game_id, int):
+            games[game_id] = {
+                "name": name or f"App {game_id}",
+                "status": status or "wishlisted",
+            }
+    return games
+
+
+def save_new_games(new_games: list[tuple[int, str]]) -> None:
+    if not new_games:
+        return
+
+    records = [(game_id, game_name, "wishlisted") for game_id, game_name in new_games]
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.executemany(
+                """
+                INSERT INTO games (id, name, status)
+                VALUES (%s, %s, %s)
+                """,
+                records,
+            )
+        conn.commit()
+
+
 def build_game_cards(api_key: str, steam_id: str) -> list[dict[str, Any]]:
+    wishlist_app_ids = get_wishlist_app_ids(api_key, steam_id)
+    games_by_id = get_games_from_db(wishlist_app_ids)
+
+    new_games: list[tuple[int, str]] = []
+    for app_id in wishlist_app_ids:
+        if app_id not in games_by_id:
+            app_name = get_app_name(api_key, app_id)
+            games_by_id[app_id] = {"name": app_name, "status": "wishlisted"}
+            new_games.append((app_id, app_name))
+
+    save_new_games(new_games)
+
     cards: list[dict[str, Any]] = []
-    for app_id in get_wishlist_app_ids(api_key, steam_id):
-        app_name = get_app_name(api_key, app_id)
+    for app_id in wishlist_app_ids:
+        app_name = games_by_id.get(app_id, {}).get("name", f"App {app_id}")
         latest_news = get_latest_news(api_key, app_id)
         cards.append(
             {
