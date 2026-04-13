@@ -3,7 +3,7 @@ from typing import Any
 
 import psycopg
 import requests
-from flask import Flask, render_template
+from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
 
@@ -11,6 +11,12 @@ STEAM_API_KEY = os.environ.get("STEAM_API_KEY")
 STEAM_USER_ID = os.environ.get("STEAM_USER_ID")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 REQUEST_TIMEOUT_SECONDS = 15
+ALLOWED_STATUSES = {
+    "released",
+    "demo_played",
+    "playtest_applied",
+    "playtest_played",
+}
 
 
 def _safe_get_json(url: str) -> dict[str, Any]:
@@ -123,6 +129,18 @@ def save_new_games(new_games: list[tuple[int, str]]) -> None:
         conn.commit()
 
 
+def update_game_status(app_id: int, status: str) -> bool:
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE games SET status = %s WHERE id = %s",
+                (status, app_id),
+            )
+            updated = cur.rowcount > 0
+        conn.commit()
+    return updated
+
+
 def build_game_cards(api_key: str, steam_id: str) -> list[dict[str, Any]]:
     wishlist_app_ids = get_wishlist_app_ids(api_key, steam_id)
     games_by_id = get_games_from_db(wishlist_app_ids)
@@ -149,6 +167,7 @@ def build_game_cards(api_key: str, steam_id: str) -> list[dict[str, Any]]:
                 "news_url": latest_news["url"],
                 "is_playtest": latest_news["is_playtest"],
                 "store_url": f"https://store.steampowered.com/app/{app_id}",
+                "status": games_by_id.get(app_id, {}).get("status", "wishlisted"),
             }
         )
     return cards
@@ -169,6 +188,21 @@ def index():
         error = f"Steam API request failed: {exc}"
 
     return render_template("index.html", cards=cards, error=error, steam_user_id=STEAM_USER_ID)
+
+
+@app.route("/status/<int:app_id>", methods=["POST"])
+def set_status(app_id: int):
+    payload = request.get_json(silent=True) or {}
+    status = str(payload.get("status") or "").strip().lower()
+
+    if status not in ALLOWED_STATUSES:
+        return jsonify({"ok": False, "error": "Invalid status"}), 400
+
+    updated = update_game_status(app_id, status)
+    if not updated:
+        return jsonify({"ok": False, "error": "Game not found"}), 404
+
+    return jsonify({"ok": True, "app_id": app_id, "status": status})
 
 
 if __name__ == "__main__":
